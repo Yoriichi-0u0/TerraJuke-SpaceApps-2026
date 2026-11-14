@@ -36,3 +36,12 @@ All rectangles are inclusive image pixel coordinates in the 1024 × 288 file. Th
 | Connector wedges | quadrilateral joining the facing edges of each parent box and its frame (+3 px) | masked |
 
 Inset labels sit inside the frames and are masked with them. The insets are **magnified duplicates** of their parent boxes: they are never counted or sonified as observations. Selecting an inset, or touring it, plays the parent box's map pixels and shows the inset only as a view.
+
+## The decade (src/decade.ts)
+
+- The twelve yearly frames are NASA's **annual night-light averages as rendered in the SVS 5313 EIC movie** (H.265 video, 7680 × 2160), not the underlying Black Marble data. Each is the per-channel average of the 5 movie frames at the centre of that year's hold, scaled 7.5× down to the change map's 1024 × 288 grid. Compression noise remains and very dim lights disappear at this scale.
+- A pixel is lit when its luma is at least 0.15 **and** at least 0.03 above its 7 × 7 median (the dark base map); its "light" is that excess. This is **rendered brightness**, not radiance, and NASA's display rendering need not be linear.
+- NASA prints the year near the middle of every frame. It is masked: rectangle 531, 144 – 553, 151 (+4 px pad), detected on all twelve frames by the unit tests.
+- Pitch is relative to each place's first lit year (A3); one octave = twice that year's rendered light. Loudness follows the lit share, as in the change map. Year-on-year changes within ±5 % count as "similar"; the decade trend (2023 against 2012) uses ±10 %.
+- **The two NASA renderings do not always agree.** For NASA's four highlighted regions: India (brighter; change map more light), Western Europe (dimmer; less light) and Ukraine (dark by 2022; less light) agree. The Eastern Mediterranean frames brighten by about 26 % while its change-map box reads near white. Cell by cell, where both show lit pixels and the change map is at least half unmasked (24 cells): 14 agree, 6 differ only between "little change" and a direction, 4 point in opposite directions. The unit tests pin these numbers; the app recomputes and shows them in Describe.
+- Ukraine's small box holds a single lit pixel at this scale, so its decade is a weak reading; the app says so.

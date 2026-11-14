@@ -11,6 +11,8 @@
 - Page: https://svs.gsfc.nasa.gov/5313
 - File used: `nightlights_flat_series_and_change_wZooms_13_EIC.02599_print.jpg` (1024×288, 63,503 bytes)
 
+- Movie used for the yearly frames: `nightlights_flat_series_and_change_wZooms_13_EIC_2160p30_h265.mp4` (7680×2160, 30 fps, 34,306,797 bytes, SHA-256 `fa770691…fd732228`), downloaded from the SVS page on 14 Nov 2026; twelve annual frames derived from it are in `public/nasa/decade/` with provenance.
+
 The EIC version is formatted for the Earth Information Center's wide displays; the original visualization is SVS 5276.
 
 ## Tools and packages
@@ -26,6 +28,7 @@ The EIC version is formatted for the Earth Information Center's wide displays; t
 | OKLab colour space (Björn Ottosson, 2020) | Perceptual colour matching (formulas re-implemented) | public formulas |
 | Claude Code (Anthropic) | SI coding agent; see SI.md | — |
 | GitHub, Vercel | Source hosting and static hosting | — |
-| macOS `sips` | One-time JPEG→BMP decode of the test fixture | — |
+| macOS `sips` | One-time JPEG→BMP decode of the test fixtures | — |
+| [FFmpeg](https://ffmpeg.org) | One-time extraction of the yearly frames from NASA's movie (scripts/extract-decade.sh) | LGPL/GPL |
 
 No runtime dependencies are shipped to the browser.

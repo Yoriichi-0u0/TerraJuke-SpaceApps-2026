@@ -2,6 +2,7 @@
 import type { Cell, Direction, InsetSummary, RegionStats } from './analyze.ts';
 import { COLS, ROWS } from './analyze.ts';
 import type { NotePlan } from './sonify.ts';
+import type { YearStats } from './decade.ts';
 
 export function pct(f: number): string {
   if (f > 0 && f < 0.01) return 'under 1%';
@@ -50,3 +51,41 @@ export const VISUAL_DESCRIPTION =
   'Land is dark grey and oceans are black. Purple dots mark places with more light, orange dots mark places with less light, and white dots mark little change. ' +
   'Four magnified insets, labelled Western Europe, Eastern Mediterranean, Ukraine and India, enlarge small boxes on the map; translucent wedges connect each box to its inset. ' +
   'A legend in the middle, titled “Change in Lighting Intensity from 2012 to 2023”, runs from orange on the left (less light) through white in the middle (no change) to purple on the right (more light); its small tick labels are not legible at this file’s resolution.';
+
+// ---- The decade ---------------------------------------------------------------------
+
+const times = (r: number) => (r >= 10 ? `${Math.round(r)}×` : `${r.toFixed(1)}×`);
+
+function trendWords(d: Direction | null): string {
+  return d === 'more' ? 'brighter' : d === 'less' ? 'dimmer' : d === 'steady' ? 'about the same' : 'never lit at this scale';
+}
+
+/** Caption for one year of the decade. */
+export function yearCaption(label: string, cur: YearStats, start: YearStats | undefined, dir: Direction, prevYear: number | null): string {
+  const lit = `${cur.litPixels} lit pixel${cur.litPixels === 1 ? '' : 's'} (${pct(cur.litFraction)} of map pixels)`;
+  if (!cur.litPixels) return `${cur.year} · ${label} · no lit map pixels · rest`;
+  const rel = !start || start.year === cur.year ? 'starting note' : `${times(cur.light / start.light)} the ${start.year} light`;
+  const vs = prevYear === null ? '' : ` · ${dir === 'more' ? 'brighter than' : dir === 'less' ? 'dimmer than' : 'similar to'} ${prevYear}`;
+  return `${cur.year} · ${label} · ${lit} · ${rel}${vs}`;
+}
+
+/** One-sentence summary of a place over the decade, compared with NASA's change map. */
+export function decadeSentence(label: string, series: readonly YearStats[], trend: Direction | null, change: Direction | null): string {
+  const a = series[0];
+  const b = series[series.length - 1];
+  if (!trend) return `${label}: no lit pixels in any yearly frame at this scale.`;
+  const ratio =
+    a.light > 0 && b.light > 0
+      ? ` Rendered light in 2023 is ${times(b.light / a.light)} that of 2012.`
+      : a.light > 0
+        ? ' By 2023 no lit pixels remain at this scale.'
+        : '';
+  const weak = Math.max(...series.map((s) => s.litPixels)) < 10 ? ' Very few lit pixels at this scale, so treat this as a weak reading.' : '';
+  const vsChange =
+    change === null
+      ? ''
+      : change === trend
+        ? ` NASA’s change map also shows ${directionWords(change)}: the two renderings agree.`
+        : ` NASA’s change map shows ${directionWords(change)} here, so the two renderings differ.`;
+  return `${label}: lit map pixels went from ${a.litPixels} in 2012 to ${b.litPixels} in 2023, ${trendWords(trend)} over the decade.${ratio}${weak}${vsChange}`;
+}

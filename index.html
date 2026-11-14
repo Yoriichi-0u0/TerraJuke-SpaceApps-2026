@@ -16,8 +16,9 @@
       <h1>TerraJuke</h1>
       <p class="tagline">One Earth. Every Sense. Everyone.</p>
       <p class="lede">
-        Listen to NASA’s map of how night-time lights changed between 2012 and 2023. Every sound is generated live from the
-        map’s own pixels and is shown, written and (on supported Android browsers) felt at the same moment.
+        Listen to NASA’s map of how night-time lights changed between 2012 and 2023, and hear the decade unfold through
+        NASA’s own yearly frames. Every sound is generated live from the pixels and is shown, written and (on supported
+        Android browsers) felt at the same moment.
       </p>
     </header>
 
@@ -28,6 +29,7 @@
         <div class="toolbar" role="group" aria-label="Modes">
           <button type="button" id="btn-explore" aria-pressed="true">Explore</button>
           <button type="button" id="btn-tour" aria-pressed="false">Tour</button>
+          <button type="button" id="btn-decade" aria-pressed="false" disabled title="Loading NASA’s yearly frames…">Hear the decade</button>
           <button type="button" id="btn-legend" aria-pressed="false">Listen to the legend</button>
           <button type="button" id="btn-describe">Describe</button>
           <button type="button" id="btn-stop" class="stop">Stop</button>
@@ -40,19 +42,32 @@
             tabindex="0"
             role="application"
             aria-roledescription="sound map"
-            aria-label="Night-lights change map. Arrow keys move between cells, Enter or Space plays the cell, Home and End jump between the four inset regions, Escape stops."
+            aria-label="Night-lights change map. Arrow keys move between cells, Enter or Space plays the cell, Home and End jump between the four inset regions, D plays the decade for the chosen place, Escape stops."
             aria-describedby="map-help"
           >
             <img id="nasa-image" src="/nasa/svs5313_eic_02599_print.jpg" width="1024" height="288" alt="NASA SVS world map of night-light change from 2012 to 2023: purple for more light, orange for less light, with four magnified insets and a legend. A full description is in the Describe section." />
+            <img id="year-image" class="year-frame" width="1024" height="288" alt="" hidden />
+            <div id="year-badge" class="year-badge" aria-hidden="true" hidden></div>
             <div class="focus-box" id="focus-box" hidden></div>
             <div class="inset-view" id="inset-view" hidden></div>
             <div class="pulse-layer" id="pulse-layer" aria-hidden="true"></div>
           </div>
         </div>
         <p id="map-help" class="help">
-          Point, tap or use the arrow keys to choose a 32-pixel cell; press Enter or Space to hear it. Purple (more light) rises, orange (less light) falls, white is a single tone.
+          Point, tap or use the arrow keys to choose a 32-pixel cell; press Enter or Space to hear it, or D to hear its decade. Purple (more light) rises, orange (less light) falls, white is a single tone.
           The magnified insets are copies of small boxes on the map, so they are not counted twice: selecting an inset plays its box on the map.
         </p>
+
+        <div class="decade-bar">
+          <label for="year">NASA yearly frame</label>
+          <input type="range" id="year" min="2012" max="2023" step="1" value="2012" disabled aria-describedby="year-help" />
+          <output id="year-out" for="year">Change map shown</output>
+          <button type="button" id="btn-change-map" disabled>Show the change map</button>
+          <p id="year-help" class="help">
+            Move the slider to see NASA’s annual night-light average for any year and hear it for the selected place. While a year is shown,
+            choosing a cell plays that year. “Hear the decade” plays the selected place (or the whole map) year by year, then NASA’s change map.
+          </p>
+        </div>
 
         <div class="now" aria-hidden="false">
           <p class="now-label">Now sounding</p>
@@ -82,6 +97,10 @@
         <p id="overall-summary">Analysing…</p>
         <h3>The four inset regions</h3>
         <ul id="inset-summaries"></ul>
+        <h3>The decade in NASA’s yearly frames</h3>
+        <p id="decade-intro">Loading NASA’s twelve yearly frames…</p>
+        <ul id="decade-summaries"></ul>
+        <p id="decade-agreement"></p>
       </section>
 
       <section class="panels" aria-label="About this experience">
@@ -112,6 +131,15 @@
             position is above +0.15 and “less” below −0.15. All sound is synthesized live with the Web Audio API; there are no
             recordings.
           </p>
+          <table id="decade-table">
+            <caption>The decade: NASA’s yearly frames, 2012–2023</caption>
+            <thead><tr><th scope="col">What the frames show</th><th scope="col">What you hear</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <p>
+            In a yearly frame a pixel counts as lit when its luma is at least 0.15 and at least 0.03 above its local 7 × 7 base map;
+            its “light” is that excess. The year NASA prints on each frame is masked. This is rendered brightness, not radiance.
+          </p>
           <p>Each sound is shown as a pulsing ring (a still outline if you prefer reduced motion), written in the caption, and, if you opt in on a supported Android browser, felt as a vibration: more = short-short, less = one long, steady = one tap.</p>
         </details>
         <details>
@@ -124,6 +152,8 @@
             <li>The insets are <strong>magnified duplicates</strong> of small map boxes. They are never counted as extra observations; Tour plays each inset’s box on the map.</li>
             <li>The legend, insets, inset labels, box outlines and connector wedges are masked out of the analysis. The mask coordinates are listed in the project’s LIMITATIONS.md.</li>
             <li>Very dim lights, especially near-white ones, can fall below the lit threshold at this 1024-pixel resolution.</li>
+            <li>The yearly frames are taken from NASA’s movie (H.265 video) and scaled down 7.5 times, so they carry compression noise and very dim lights disappear. Their “light” is rendered brightness above the base map, not radiance, and NASA’s display rendering may not be linear.</li>
+            <li>The yearly frames and the change map are two different renderings. They agree for India, Western Europe and Ukraine but not everywhere; the Describe section reports how often they agree, cell by cell.</li>
           </ul>
         </details>
         <details>
@@ -132,6 +162,12 @@
             <strong>Change in Night Lights between 2012 and 2023 – EIC Version</strong>, NASA’s Scientific Visualization Studio (<a href="https://svs.gsfc.nasa.gov/5313">svs.gsfc.nasa.gov/5313</a>), released 14 June 2024.
             Visualizer: Kel Elkins (USRA). Scientists: Zhuosen Wang (UMD), Miguel Román (Leidos), Ranjay Shrestha (SSAI), Srija Chakraborty (USRA), Virginia Kalb (NASA).
             Data: Black Marble (Next Generation), Suomi NPP VIIRS, NASA/NOAA.
+          </p>
+          <p>
+            The twelve yearly frames come from the same visualization’s Earth Information Center movie
+            (<code>nightlights_flat_series_and_change_wZooms_13_EIC_2160p30_h265.mp4</code>, 34,306,797 bytes), which opens with NASA’s
+            annual averages for 2012 to 2023. Each frame is the average of the five movie frames at the centre of that year’s hold,
+            scaled to the change map’s 1024 × 288 grid; hashes and frame numbers are in <code>public/nasa/decade/provenance.json</code>.
           </p>
           <p id="provenance">File: 1024 × 288 JPEG, 63,503 bytes.</p>
           <p>TerraJuke by Team BoboMimi (Chia Yuen Kai, Jacy Chiong). Built during NASA Space Apps 2026. Not affiliated with or endorsed by NASA.</p>

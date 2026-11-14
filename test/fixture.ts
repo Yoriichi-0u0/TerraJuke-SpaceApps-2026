@@ -2,12 +2,21 @@
 // svs5313.decoded.bmp is the pinned JPEG decoded once with macOS `sips -s format bmp`
 // (24-bit, top-down). Browsers decode the same JPEG at run time; see test/fixtures/README.md.
 import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
 import type { Raster } from '../src/raster.ts';
 
 export const JPEG_PATH = new URL('../public/nasa/svs5313_eic_02599_print.jpg', import.meta.url);
 
 export function loadFixture(): Raster {
-  const b = readFileSync(new URL('./fixtures/svs5313.decoded.bmp', import.meta.url));
+  return parseBmp(readFileSync(new URL('./fixtures/svs5313.decoded.bmp', import.meta.url)));
+}
+
+/** One of NASA's annual frames (public/nasa/decade/YYYY.jpg), decoded once with sips and gzipped. */
+export function loadYearFixture(year: number): Raster {
+  return parseBmp(gunzipSync(readFileSync(new URL(`./fixtures/decade/${year}.bmp.gz`, import.meta.url))));
+}
+
+function parseBmp(b: Buffer): Raster {
   const offset = b.readUInt32LE(10);
   const width = b.readInt32LE(18);
   const rawHeight = b.readInt32LE(22);

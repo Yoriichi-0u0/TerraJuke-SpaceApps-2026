@@ -10,7 +10,7 @@ export type Announcements = 'off' | 'selection' | 'summary';
 
 export interface FeedbackEvent {
   readonly id: number;
-  readonly source: 'cell' | 'region' | 'legend';
+  readonly source: 'cell' | 'region' | 'legend' | 'year';
   /** 'user' for a direct selection; 'auto' for tour and legend steps. */
   readonly origin: 'user' | 'auto';
   readonly rect: Rect;
@@ -144,17 +144,21 @@ export class Feedback {
     const h = rect.y1 - rect.y0 + 1;
     const cx = rect.x0 + w / 2;
     const cy = rect.y0 + h / 2;
-    // Ring size grows with the lit share (0.7× to 1.6× the region).
+    // Ring size grows with the lit share (0.7× to 1.6× the region). A very large area (the
+    // whole map) flashes its own outline instead of a ring.
+    const wide = w > 300;
     const scale = 0.7 + Math.min(0.9, ev.litFraction * 9);
     const size = Math.max(w, h) * scale;
-    ring.className = `pulse pulse-${ev.direction}`;
+    ring.className = `pulse pulse-${ev.direction}${wide ? ' pulse-area' : ''}`;
     ring.dataset.eventId = String(ev.id);
     ring.dataset.direction = ev.direction;
     ring.dataset.pulses = String(ev.plan.pulses);
-    ring.style.left = `${((cx - size / 2) / IMAGE_WIDTH) * 100}%`;
-    ring.style.top = `${((cy - size / 2) / IMAGE_HEIGHT) * 100}%`;
-    ring.style.width = `${(size / IMAGE_WIDTH) * 100}%`;
-    ring.style.height = `${(size / IMAGE_HEIGHT) * 100}%`;
+    const bw = wide ? w : size;
+    const bh = wide ? h : size;
+    ring.style.left = `${((cx - bw / 2) / IMAGE_WIDTH) * 100}%`;
+    ring.style.top = `${((cy - bh / 2) / IMAGE_HEIGHT) * 100}%`;
+    ring.style.width = `${(bw / IMAGE_WIDTH) * 100}%`;
+    ring.style.height = `${(bh / IMAGE_HEIGHT) * 100}%`;
     if (this.reducedMotion.matches) {
       ring.classList.add('pulse-static');
     } else {

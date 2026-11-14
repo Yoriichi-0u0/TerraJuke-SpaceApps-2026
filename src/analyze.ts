@@ -23,7 +23,7 @@ export const ROWS = IMAGE_HEIGHT / CELL_SIZE;
 
 export type Direction = 'more' | 'less' | 'steady';
 
-function localMedianLuma(r: Raster, x: number, y: number): number {
+export function localMedianLuma(r: Raster, x: number, y: number): number {
   const v: number[] = [];
   for (let dy = -3; dy <= 3; dy++) {
     for (let dx = -3; dx <= 3; dx++) {
