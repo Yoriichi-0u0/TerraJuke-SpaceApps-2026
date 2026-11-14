@@ -5,7 +5,7 @@
   "description": "TerraJuke — One Earth. Every Sense. Everyone. NASA Space Apps 2026 (Team BoboMimi). Code written with Claude Code (SI) under the team's direction; see SI.md.",
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "vite",
