@@ -1,0 +1,52 @@
+// Plain-language wording. Every phrase describes rendered colours in NASA's legend terms.
+import type { Cell, Direction, InsetSummary, RegionStats } from './analyze.ts';
+import { COLS, ROWS } from './analyze.ts';
+import type { NotePlan } from './sonify.ts';
+
+export function pct(f: number): string {
+  if (f > 0 && f < 0.01) return 'under 1%';
+  return `${Math.round(f * 100)}%`;
+}
+
+export function directionWords(d: Direction): string {
+  return d === 'more' ? 'more light' : d === 'less' ? 'less light' : 'little change';
+}
+
+/** Strength = how far the colour sits along NASA's legend. Never a measured amount. */
+export function legendWords(d: Direction, meanChange: number): string {
+  if (d === 'steady') return 'near white on the legend';
+  const m = Math.abs(meanChange);
+  const how = m < 0.35 ? 'slightly' : m < 0.7 ? 'clearly' : 'strongly';
+  return `${how} ${d === 'more' ? 'purple' : 'orange'} on the legend`;
+}
+
+export function figureWords(plan: NotePlan): string {
+  return plan.figure === 'rising' ? 'rising' : plan.figure === 'falling' ? 'falling' : 'single tone';
+}
+
+export function cellPosition(cell: Pick<Cell, 'col' | 'row'>): string {
+  return `Column ${cell.col + 1} of ${COLS}, row ${cell.row + 1} of ${ROWS}`;
+}
+
+export function statsSentence(s: RegionStats): string {
+  if (!s.direction) return s.mapPixels ? 'no lit map pixels (dark land or ocean); silent' : 'no map pixels';
+  return `${directionWords(s.direction)}, ${legendWords(s.direction, s.meanChange)}; ${pct(s.litFraction)} of map pixels lit`;
+}
+
+export function eventCaption(label: string, s: RegionStats, plan: NotePlan): string {
+  return `${label} · ${directionWords(s.direction!)} · ${legendWords(s.direction!, s.meanChange)} · ${pct(s.litFraction)} of map pixels lit · ${figureWords(plan)}, ${plan.pulses} pulse${plan.pulses > 1 ? 's' : ''}`;
+}
+
+export function insetSentence(s: InsetSummary): string {
+  if (!s.direction) return `${s.name}: the boxed map region has no lit pixels at this scale.`;
+  const shares = `Of its ${s.litPixels} lit pixels, ${pct(s.shareMore)} are on the purple side, ${pct(s.shareLess)} on the orange side and ${pct(s.shareSteady)} near white.`;
+  const few = s.litPixels < 10 ? ' Very few lit pixels: the region is dim at this map scale, so treat this as a weak reading.' : '';
+  return `${s.name} (the small box on the world map that the inset magnifies): overall ${directionWords(s.direction)}, ${legendWords(s.direction, s.meanChange)}; ${pct(s.litFraction)} of its map pixels are lit. ${shares}${few}`;
+}
+
+export const VISUAL_DESCRIPTION =
+  'NASA Scientific Visualization Studio’s “Change in Night Lights between 2012 and 2023 – EIC Version” (visualization 5313). ' +
+  'A dark world map, drawn extra wide for the Earth Information Center’s screens so that some longitudes appear twice, shows where night-time lights changed between 2012 and 2023, using NASA’s Black Marble data from the Suomi NPP VIIRS instrument. ' +
+  'Land is dark grey and oceans are black. Purple dots mark places with more light, orange dots mark places with less light, and white dots mark little change. ' +
+  'Four magnified insets, labelled Western Europe, Eastern Mediterranean, Ukraine and India, enlarge small boxes on the map; translucent wedges connect each box to its inset. ' +
+  'A legend in the middle, titled “Change in Lighting Intensity from 2012 to 2023”, runs from orange on the left (less light) through white in the middle (no change) to purple on the right (more light); its small tick labels are not legible at this file’s resolution.';

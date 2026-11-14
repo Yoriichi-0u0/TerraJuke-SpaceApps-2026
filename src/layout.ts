@@ -59,7 +59,7 @@ export const INSETS: readonly Inset[] = [
   },
 ];
 
-/** Legend: title, colour bar and tick labels ("lights out", "no change", "new lights"). */
+/** Legend: title, colour bar and its three small tick labels. */
 export const LEGEND_BOX: Rect = { x0: 501, y0: 157, x1: 582, y1: 170 };
 /** The colour bar inside the legend. Row 166 is a darker anti-aliased edge and is excluded. */
 export const LEGEND_BAR: Rect = { x0: 502, y0: 162, x1: 581, y1: 165 };
