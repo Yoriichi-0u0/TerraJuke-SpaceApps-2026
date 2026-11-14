@@ -56,36 +56,34 @@ export const VISUAL_DESCRIPTION =
 
 const times = (r: number) => (r >= 10 ? `${Math.round(r)}×` : `${r.toFixed(1)}×`);
 
-function trendWords(d: Direction | null): string {
-  return d === 'more' ? 'brighter' : d === 'less' ? 'dimmer' : d === 'steady' ? 'about the same' : 'never lit at this scale';
+export function trendWords(d: Direction | null): string {
+  return d === 'more' ? 'brighter' : d === 'less' ? 'dimmer' : d === 'steady' ? 'about the same (within ±10 %)' : 'never lit at this scale';
 }
 
 /** Caption for one year of the decade. */
 export function yearCaption(label: string, cur: YearStats, start: YearStats | undefined, dir: Direction, prevYear: number | null): string {
-  const lit = `${cur.litPixels} lit pixel${cur.litPixels === 1 ? '' : 's'} (${pct(cur.litFraction)} of map pixels)`;
-  if (!cur.litPixels) return `${cur.year} · ${label} · no lit map pixels · rest`;
-  const rel = !start || start.year === cur.year ? 'starting note' : `${times(cur.light / start.light)} the ${start.year} light`;
+  if (cur.light <= 0) return `${cur.year} · ${label} · nothing brighter than the base map · rest`;
+  const rel = !start || start.year === cur.year ? 'starting note' : `${times(cur.light / start.light)} its ${start.year} brightness`;
   const vs = prevYear === null ? '' : ` · ${dir === 'more' ? 'brighter than' : dir === 'less' ? 'dimmer than' : 'similar to'} ${prevYear}`;
-  return `${cur.year} · ${label} · ${lit} · ${rel}${vs}`;
+  return `${cur.year} · ${label} · ${rel}${vs}`;
+}
+
+/** A place too small for a reliable decade reading at this scale. */
+export function smallPlaceWords(mapPixels: number): string {
+  return ` This box covers only ${mapPixels} map pixels at this scale, so its decade is a weak reading.`;
 }
 
 /** One-sentence summary of a place over the decade, compared with NASA's change map. */
-export function decadeSentence(label: string, series: readonly YearStats[], trend: Direction | null, change: Direction | null): string {
+export function decadeSentence(label: string, series: readonly YearStats[], trend: Direction | null, change: Direction | null, small: boolean): string {
   const a = series[0];
   const b = series[series.length - 1];
-  if (!trend) return `${label}: no lit pixels in any yearly frame at this scale.`;
-  const ratio =
-    a.light > 0 && b.light > 0
-      ? ` Rendered light in 2023 is ${times(b.light / a.light)} that of 2012.`
-      : a.light > 0
-        ? ' By 2023 no lit pixels remain at this scale.'
-        : '';
-  const weak = Math.max(...series.map((s) => s.litPixels)) < 10 ? ' Very few lit pixels at this scale, so treat this as a weak reading.' : '';
+  if (!trend) return `${label}: nothing brighter than the base map in any yearly frame at this scale.`;
+  const ratio = a.light > 0 ? ` In 2023 its brightness above the base map is ${times(b.light / a.light)} that of 2012.` : '';
   const vsChange =
     change === null
       ? ''
       : change === trend
         ? ` NASA’s change map also shows ${directionWords(change)}: the two renderings agree.`
         : ` NASA’s change map shows ${directionWords(change)} here, so the two renderings differ.`;
-  return `${label}: lit map pixels went from ${a.litPixels} in 2012 to ${b.litPixels} in 2023, ${trendWords(trend)} over the decade.${ratio}${weak}${vsChange}`;
+  return `${label}: ${trendWords(trend)} over the decade.${ratio}${small ? smallPlaceWords(a.mapPixels) : ''}${vsChange}`;
 }

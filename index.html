@@ -73,6 +73,7 @@
           <p class="now-label">Now sounding</p>
           <p id="caption" class="caption">Nothing yet. Choose a cell, start the tour, or listen to the legend.</p>
           <p id="status" class="status">Loading NASA image…</p>
+          <p id="sound-status" class="status">Sound: starts when you choose something.</p>
         </div>
 
         <fieldset class="settings">
@@ -100,6 +101,23 @@
         <h3>The decade in NASA’s yearly frames</h3>
         <p id="decade-intro">Loading NASA’s twelve yearly frames…</p>
         <ul id="decade-summaries"></ul>
+        <div class="table-scroll" tabindex="0" role="region" aria-label="Regional comparison table (scrolls sideways on small screens)">
+        <table id="decade-compare">
+          <caption>Compare the regions: the decade, NASA’s change map and an independent NASA check</caption>
+          <thead>
+            <tr>
+              <th scope="col">Place</th>
+              <th scope="col">Map pixels</th>
+              <th scope="col">Brightness 2023 ÷ 2012</th>
+              <th scope="col">Decade</th>
+              <th scope="col">NASA change map</th>
+              <th scope="col">Same direction?</th>
+              <th scope="col">NASA SVS 5276 stills, 2023 ÷ 2012</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        </div>
         <p id="decade-agreement"></p>
       </section>
 
@@ -137,8 +155,9 @@
             <tbody></tbody>
           </table>
           <p>
-            In a yearly frame a pixel counts as lit when its luma is at least 0.15 and at least 0.03 above its local 7 × 7 base map;
-            its “light” is that excess. The year NASA prints on each frame is masked. This is rendered brightness, not radiance.
+            In a yearly frame, each pixel’s brightness is its luma above the 7 × 7 median around it (the dark base map), summed over the
+            place, with no “lit” threshold: a threshold lets dim lights cross it as they brighten and exaggerates growth at this scale.
+            The year NASA prints on each frame is masked. This is rendered brightness, not radiance.
           </p>
           <p>Each sound is shown as a pulsing ring (a still outline if you prefer reduced motion), written in the caption, and, if you opt in on a supported Android browser, felt as a vibration: more = short-short, less = one long, steady = one tap.</p>
         </details>
@@ -152,8 +171,9 @@
             <li>The insets are <strong>magnified duplicates</strong> of small map boxes. They are never counted as extra observations; Tour plays each inset’s box on the map.</li>
             <li>The legend, insets, inset labels, box outlines and connector wedges are masked out of the analysis. The mask coordinates are listed in the project’s LIMITATIONS.md.</li>
             <li>Very dim lights, especially near-white ones, can fall below the lit threshold at this 1024-pixel resolution.</li>
-            <li>The yearly frames are taken from NASA’s movie (H.265 video) and scaled down 7.5 times, so they carry compression noise and very dim lights disappear. Their “light” is rendered brightness above the base map, not radiance, and NASA’s display rendering may not be linear.</li>
-            <li>The yearly frames and the change map are two different renderings. They agree for India, Western Europe and Ukraine but not everywhere; the Describe section reports how often they agree, cell by cell.</li>
+            <li>The yearly frames are taken from NASA’s movie (H.265 video) and scaled down 7.5 times, so they carry compression noise. Their brightness above the base map is rendered brightness, not radiance, and NASA’s display rendering may not be linear. On NASA’s separate, higher-resolution annual stills (SVS 5276) the same measure gives similar trends: the world 1.18× (ours 1.24×), India’s view 1.51× (our India box 1.83×; the two areas differ).</li>
+            <li>Small boxes give weak decade readings at this scale: Ukraine’s box (280 map pixels) and the Eastern Mediterranean’s (308) both read brighter, while the change map shows less light and little change. Western Europe dims by about 10 %, right at the ±10 % threshold.</li>
+            <li>The yearly frames and the change map are two different renderings and do not agree everywhere; the Describe section compares them region by region and cell by cell.</li>
           </ul>
         </details>
         <details>

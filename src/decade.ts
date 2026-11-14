@@ -2,13 +2,18 @@
 //
 // The EIC movie opens with one annual-average frame per year before it reveals the change
 // map. scripts/extract-decade.sh takes each year's frame from the movie at the change map's
-// 1024 × 288 grid (see public/nasa/decade/provenance.json). Here we read RENDERED pixels:
-// how many map pixels are lit and how far they stand above the dark base map around them.
-// That is rendered brightness, not radiance, and a share of pixels, not of area.
-import { localMedianLuma } from './analyze.ts';
+// 1024 × 288 grid (see public/nasa/decade/provenance.json). Here we read RENDERED pixels.
+//
+// The measure of a place's light is its BRIGHTNESS ABOVE THE BASE MAP: for every pixel, the
+// luma above the 7 × 7 median around it (the dark land or ocean), summed over the place. It
+// has no "lit" threshold on purpose: a threshold lets dim lights cross it as they brighten,
+// which exaggerates growth at this coarse scale (India read 2.8× instead of about 1.6×).
+// Checked against NASA's independent SVS 5276 annual stills at 4–8× this resolution
+// (validation/svs5276-crosscheck.json and test/unit/crosscheck.test.ts). It is rendered
+// brightness, not radiance.
 import { luma } from './color.ts';
 import { IMAGE_HEIGHT, IMAGE_WIDTH } from './layout.ts';
-import { inRect, rgbAt, type Raster, type Rect } from './raster.ts';
+import { inRect, type Raster, type Rect } from './raster.ts';
 import type { Direction } from './analyze.ts';
 import { gainFor, panFor, type NotePlan } from './sonify.ts';
 
@@ -20,43 +25,99 @@ export const frameUrl = (year: number) => `/nasa/decade/${year}.jpg`;
 export const YEAR_LABEL: Rect = { x0: 531, y0: 144, x1: 553, y1: 151 };
 export const YEAR_LABEL_PAD = 4;
 
-/** A pixel is lit when it is at least this bright … (the dark land base map stays below it) */
-export const DECADE_LIT_LUMA = 0.15;
-/** … and stands at least this far above the 7 × 7 median luma around it. */
-export const DECADE_CONTRAST = 0.03;
+/** Darker pixels are ocean or base map and cannot stand above it (a fast path, not a threshold on light). */
+export const DECADE_MIN_LUMA = 0.06;
+/** Luma above the local base below this is treated as compression noise. */
+export const DECADE_NOISE_FLOOR = 0.01;
+/** "Bright" pixels (used only for loudness): at least this luma … */
+export const BRIGHT_PIXEL_LUMA = 0.15;
+/** … and at least this far above the local base. */
+export const BRIGHT_PIXEL_CONTRAST = 0.03;
 
-/** Light per pixel: luma above the local base for lit pixels, 0 for unlit or masked pixels. */
+/** Per pixel: luma above the local base map (0 at or below the noise floor, and for the year label). */
 export interface YearField {
   readonly year: number;
   readonly light: Float32Array;
+  /** 1 where the pixel is bright (for loudness only). */
+  readonly bright: Uint8Array;
 }
 
 export function isYearLabel(x: number, y: number): boolean {
   return inRect(YEAR_LABEL, x, y, YEAR_LABEL_PAD);
 }
 
-export function analyzeYear(r: Raster, year: number): YearField {
-  const light = new Float32Array(r.width * r.height);
-  for (let y = 0; y < r.height; y++) {
-    for (let x = 0; x < r.width; x++) {
-      if (isYearLabel(x, y)) continue;
-      const L = luma(rgbAt(r, x, y));
-      if (L < DECADE_LIT_LUMA) continue;
-      const excess = L - localMedianLuma(r, x, y);
-      if (excess >= DECADE_CONTRAST) light[y * r.width + x] = excess;
+/** k-th smallest of the first n values (in place; n is small). */
+function select(v: Float32Array, n: number, k: number): number {
+  let lo = 0;
+  let hi = n - 1;
+  while (lo < hi) {
+    const pivot = v[(lo + hi) >> 1];
+    let i = lo;
+    let j = hi;
+    while (i <= j) {
+      while (v[i] < pivot) i++;
+      while (v[j] > pivot) j--;
+      if (i <= j) {
+        const t = v[i];
+        v[i] = v[j];
+        v[j] = t;
+        i++;
+        j--;
+      }
+    }
+    if (k <= j) hi = j;
+    else if (k >= i) lo = i;
+    else return v[k];
+  }
+  return v[k];
+}
+
+/** mask(x, y) excludes a pixel (by default NASA's printed year on the EIC frames). */
+export interface DecadeOptions {
+  readonly minLuma: number;
+  readonly noiseFloor: number;
+}
+export const DECADE_OPTIONS: DecadeOptions = { minLuma: DECADE_MIN_LUMA, noiseFloor: DECADE_NOISE_FLOOR };
+
+export function analyzeYear(
+  r: Raster,
+  year: number,
+  mask: (x: number, y: number) => boolean = isYearLabel,
+  options: DecadeOptions = DECADE_OPTIONS,
+): YearField {
+  const { width: W, height: H, data } = r;
+  const lum = new Float32Array(W * H);
+  for (let i = 0; i < W * H; i++) lum[i] = luma([data[i * 4], data[i * 4 + 1], data[i * 4 + 2]]);
+  const light = new Float32Array(W * H);
+  const bright = new Uint8Array(W * H);
+  const win = new Float32Array(49);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      const L = lum[i];
+      if (L < options.minLuma || mask(x, y)) continue;
+      let n = 0;
+      for (let dy = -3; dy <= 3; dy++) {
+        const yy = Math.min(H - 1, Math.max(0, y + dy)) * W;
+        for (let dx = -3; dx <= 3; dx++) win[n++] = lum[yy + Math.min(W - 1, Math.max(0, x + dx))];
+      }
+      const excess = L - select(win, 49, 24);
+      if (excess > options.noiseFloor) light[i] = excess;
+      if (L >= BRIGHT_PIXEL_LUMA && excess >= BRIGHT_PIXEL_CONTRAST) bright[i] = 1;
     }
   }
-  return { year, light };
+  return { year, light, bright };
 }
 
 export interface YearStats {
   readonly year: number;
   /** Map pixels considered (the year label is excluded). */
   readonly mapPixels: number;
+  /** Bright pixels (luma ≥ 0.15 and ≥ 0.03 above the base): used for loudness only. */
   readonly litPixels: number;
   /** litPixels / mapPixels: a share of rendered map pixels, not of land area. */
   readonly litFraction: number;
-  /** Sum of each lit pixel's luma above its local base: rendered brightness, not radiance. */
+  /** Brightness above the base map, summed over the place: rendered brightness, not radiance. */
   readonly light: number;
 }
 
@@ -68,15 +129,16 @@ export function yearStats(field: YearField, rect: Rect): YearStats {
     for (let x = Math.max(0, rect.x0); x <= Math.min(IMAGE_WIDTH - 1, rect.x1); x++) {
       if (isYearLabel(x, y)) continue;
       mapPixels++;
-      const v = field.light[y * IMAGE_WIDTH + x];
-      if (v > 0) {
-        litPixels++;
-        light += v;
-      }
+      const i = y * IMAGE_WIDTH + x;
+      light += field.light[i];
+      litPixels += field.bright[i];
     }
   }
   return { year: field.year, mapPixels, litPixels, litFraction: mapPixels ? litPixels / mapPixels : 0, light };
 }
+
+/** Places smaller than this many map pixels give weak readings at this scale (Ukraine's box). */
+export const SMALL_PLACE_PIXELS = 600;
 
 export function decadeSeries(fields: readonly YearField[], rect: Rect): YearStats[] {
   return fields.map((f) => yearStats(f, rect));
@@ -104,16 +166,16 @@ export function yearDirection(prev: YearStats | undefined, cur: YearStats): Dire
 export function decadeTrend(series: readonly YearStats[]): Direction | null {
   const first = series[0];
   const last = series[series.length - 1];
-  if (!series.some((s) => s.litPixels > 0)) return null;
+  if (!series.some((s) => s.light > 0)) return null;
   return compare(first.light, last.light, DECADE_CHANGE);
 }
 
 // ---- Sound rules for the decade ------------------------------------------------
-// Each place starts on the same note (A3) in its first lit year. Every doubling of its
-// rendered light moves the melody up one octave (5 steps of the pentatonic scale); every
-// halving, one octave down. So the melody is the place's own trend, comparable everywhere:
-// "an octave up" always means "twice the rendered light of the starting year".
-// Loudness follows the lit share of map pixels, exactly as in the change map.
+// Each place starts on the same note (A3) in its first year with any light. Every doubling of
+// its brightness above the base map moves the melody up one octave (5 steps of the pentatonic
+// scale); every halving, one octave down. So the melody is the place's own trend, comparable
+// everywhere: "an octave up" always means "twice the brightness of the starting year".
+// Loudness follows the share of clearly bright pixels, as the change map's follows lit pixels.
 
 /** A major pentatonic scale over three octaves from A2 (110 Hz), in semitones. */
 export const DECADE_SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28, 31, 33, 36] as const;
@@ -156,9 +218,9 @@ export function yearPlan(cur: YearStats, start: number, direction: Direction, xC
 
 export const DECADE_MAPPING_TABLE = [
   ['NASA’s annual frame for each year, 2012 → 2023', 'One note per year, half a second apart, while the map shows that year'],
-  ['Rendered light of the place against its first lit year', 'Pitch: starts on A3; twice the light = one octave higher, half = one octave lower (A major pentatonic, A2–A5)'],
-  ['Share of the place’s map pixels that are lit', 'Loudness (25–100 %, full at 10 %)'],
-  ['A year with no lit pixels', 'A rest (silence)'],
+  ['The place’s brightness above the dark base map, against its first year', 'Pitch: starts on A3; twice the brightness = one octave higher, half = one octave lower (A major pentatonic, A2–A5)'],
+  ['Share of the place’s map pixels that are clearly bright', 'Loudness (25–100 %, full at 10 %)'],
+  ['A year with nothing brighter than the base map', 'A rest (silence)'],
   ['Brighter / dimmer / similar to the year before (±5 %)', 'Purple / orange / white ring, and the matching vibration'],
   ['After 2023: NASA’s change map for the same place', 'The change-map figure: rising pair, falling pair or single tone'],
 ] as const;

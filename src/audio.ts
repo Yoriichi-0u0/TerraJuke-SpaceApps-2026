@@ -13,19 +13,49 @@ export class AudioEngine {
   private master: GainNode | null = null;
   muted = false;
 
+  /** Called whenever the context's state changes ('running', 'suspended', 'interrupted', …). */
+  onStateChange: ((state: string) => void) | null = null;
+
   /** Create or resume the context. Call from a user gesture (click or key). */
   unlock(): Ctx | null {
     const Ctor: typeof AudioContext | undefined =
       globalThis.AudioContext ?? (globalThis as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!Ctor) return null;
     if (!this.ctx) {
+      // iOS mutes Web Audio when the ring/silent switch is on unless the page asks for
+      // "playback" (Safari 17+). TerraJuke is a listening experience, so it asks.
+      const session = (navigator as unknown as { audioSession?: { type: string } }).audioSession;
+      if (session) {
+        try {
+          session.type = 'playback';
+        } catch {
+          /* not allowed here: keep the default */
+        }
+      }
       this.ctx = new Ctor();
       this.master = this.ctx.createGain();
       this.master.gain.value = MASTER_LEVEL;
       this.master.connect(this.ctx.destination);
+      this.ctx.onstatechange = () => this.onStateChange?.(this.state);
     }
-    if (this.ctx.state === 'suspended') void this.ctx.resume();
+    this.resume();
     return this.ctx;
+  }
+
+  /** Resume a context that was suspended or interrupted (iOS calls, other apps, background tabs). */
+  resume(): void {
+    if (this.ctx && this.ctx.state !== 'running' && this.ctx.state !== 'closed') void this.ctx.resume().catch(() => undefined);
+  }
+
+  /** 'not-started' until the first gesture; then the context's own state. */
+  get state(): string {
+    if (!this.available) return 'unavailable';
+    return this.ctx ? this.ctx.state : 'not-started';
+  }
+
+  /** For diagnostics and tests only. */
+  suspendForTest(): Promise<void> {
+    return this.ctx ? this.ctx.suspend() : Promise.resolve();
   }
 
   get available(): boolean {

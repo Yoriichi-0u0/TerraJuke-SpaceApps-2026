@@ -1,9 +1,11 @@
 // Modes (Explore, Tour, Listen to the legend, Describe), keyboard and pointer handling.
 import { cellRect, COLS, ROWS, directionOf, type Cell, type InsetSummary, type RegionStats } from './analyze.ts';
 import { AudioEngine } from './audio.ts';
-import { cellPosition, decadeSentence, directionWords, eventCaption, insetSentence, pct, statsSentence, VISUAL_DESCRIPTION, yearCaption } from './describe.ts';
+import { cellPosition, decadeSentence, directionWords, eventCaption, insetSentence, pct, statsSentence, trendWords, VISUAL_DESCRIPTION, yearCaption } from './describe.ts';
+import crosscheck from '../validation/svs5276-crosscheck.json';
 import {
   DECADE_MAPPING_TABLE,
+  SMALL_PLACE_PIXELS,
   decadeSeries,
   decadeTrend,
   frameUrl,
@@ -30,8 +32,10 @@ export interface Model {
 
 declare global {
   interface Window {
+    /** Diagnostics: the audio context's state, and a way for tests to suspend it. */
+    terrajukeAudio?: { state(): string; suspend(): Promise<void> };
     terrajukeDecade?: {
-      regions: { id: string; trend: string | null; change: string | null; lit: number[] }[];
+      regions: { id: string; trend: string | null; change: string | null; ratio: number; small: boolean; light: number[] }[];
       agreement: { same: number; nearly: number; opposite: number };
     };
     terrajukeModel?: {
@@ -74,7 +78,38 @@ export function startUI(model: Model): UI {
   const status = $('status');
   const announcer = new Announcer($('announcer'));
   const audio = new AudioEngine();
+  const soundStatus = $('sound-status');
+  const SOUND_WORDS: Record<string, string> = {
+    running: 'Sound: on.',
+    suspended: 'Sound: waiting for the browser. Tap, click or press a key to allow sound; captions and pulses still work.',
+    interrupted: 'Sound: paused by the device (for example a call). Tap or press a key to resume.',
+    closed: 'Sound: stopped.',
+    unavailable: 'Sound: not available in this browser. Captions, pulses, text and vibration still work.',
+  };
+  let warnedBlocked = false;
+  const showSound = (state: string) => {
+    soundStatus.textContent = SOUND_WORDS[state] ?? 'Sound: starts when you choose something.';
+    if (state === 'running') warnedBlocked = false;
+  };
+  audio.onStateChange = showSound;
+  if (!audio.available) showSound('unavailable');
+  // WebKit grants permission to start audio on pointerup/touchend/click/keydown, not always on
+  // pointerdown. Resume an existing context on every such gesture, so the first tap on a phone
+  // is never silent. (A context is only created by actions that play sound.)
+  for (const type of ['pointerup', 'touchend', 'click', 'keydown'] as const) {
+    document.addEventListener(type, () => audio.resume(), { capture: true, passive: true });
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') audio.resume();
+  });
+  window.terrajukeAudio = { state: () => audio.state, suspend: () => audio.suspendForTest() };
   const feedback = new Feedback({ audio, pulseLayer: $('pulse-layer'), caption, announcer });
+  feedback.onBlocked = () => {
+    // Said once: a screen-reader user must know why nothing is heard.
+    if (warnedBlocked) return;
+    warnedBlocked = true;
+    announcer.say(SOUND_WORDS[audio.state] ?? SOUND_WORDS.suspended);
+  };
   const buttons = { explore: $('btn-explore'), tour: $('btn-tour'), legend: $('btn-legend'), decade: $<HTMLButtonElement>('btn-decade') };
   const yearImg = $<HTMLImageElement>('year-image');
   const yearBadge = $('year-badge');
@@ -164,7 +199,7 @@ export function startUI(model: Model): UI {
 
   function describeYearCell(cell: Cell, year: number): string {
     const s = decadeSeries(decade!, cellRect(cell.col, cell.row))[YEARS.indexOf(year as (typeof YEARS)[number])];
-    return `${cellPosition(cell)}, ${year} frame: ${s.litPixels ? `${s.litPixels} lit map pixels (${pct(s.litFraction)})` : 'no lit map pixels'}.`;
+    return `${cellPosition(cell)}, ${year} frame: ${s.light > 0 ? `${s.litPixels} clearly bright pixel${s.litPixels === 1 ? '' : 's'}, brightness above the base map ${s.light.toFixed(2)}` : 'nothing brighter than the base map'}.`;
   }
 
   function showFocus(): void {
@@ -427,7 +462,7 @@ export function startUI(model: Model): UI {
         timer = window.setTimeout(next, TOUR_STEP_MS);
       } else {
         setMode('explore');
-        announcer.say(decadeSentence(p.label, series, trend, p.change?.direction ?? null));
+        announcer.say(decadeSentence(p.label, series, trend, p.change?.direction ?? null, series[0].mapPixels < SMALL_PLACE_PIXELS));
       }
     };
     timer = window.setTimeout(next, 250);
@@ -451,14 +486,42 @@ export function startUI(model: Model): UI {
       return { ...pl, series, trend: decadeTrend(series) };
     });
     $('decade-intro').textContent =
-      'NASA’s movie for this visualization opens with an annual night-light average for every year from 2012 to 2023. TerraJuke reads each yearly frame in your browser on the same grid as the change map. Counts are lit map pixels; “rendered light” is brightness above the base map, not radiance.';
+      'NASA’s movie for this visualization opens with an annual night-light average for every year from 2012 to 2023. TerraJuke reads each yearly frame in your browser on the same grid as the change map and measures each place’s brightness above the dark base map (rendered brightness, not radiance). The same measure applied to NASA’s separate, higher-resolution annual stills (SVS 5276) tracks it closely: year by year, r = 0.999 for the world and 0.96 for India.';
     $('decade-summaries').replaceChildren(
       ...rows.map((r) => {
         const li = document.createElement('li');
-        li.textContent = decadeSentence(r.label, r.series, r.trend, r.change.direction);
+        li.textContent = decadeSentence(r.label, r.series, r.trend, r.change.direction, r.series[0].mapPixels < SMALL_PLACE_PIXELS);
         return li;
       }),
     );
+    // Regional comparison: the decade, NASA's change map and NASA's independent 5276 stills side by side.
+    const independent: Record<string, number> = {
+      world: crosscheck.series.world.light[11] / crosscheck.series.world.light[0],
+      india: crosscheck.series.india.light[11] / crosscheck.series.india.light[0],
+    };
+    const fmt = (x: number) => `${x.toFixed(2)}×`;
+    $('decade-compare')
+      .querySelector('tbody')!
+      .replaceChildren(
+        ...rows.map((r) => {
+          const tr = document.createElement('tr');
+          const ratio = r.series[0].light > 0 ? r.series[11].light / r.series[0].light : NaN;
+          const small = r.series[0].mapPixels < SMALL_PLACE_PIXELS;
+          const th = document.createElement('th');
+          th.scope = 'row';
+          th.textContent = r.label;
+          const cells = [
+            r.series[0].mapPixels.toLocaleString('en'),
+            Number.isNaN(ratio) ? '—' : fmt(ratio),
+            trendWords(r.trend) + (small ? ' (weak: small box)' : ''),
+            r.change.direction ? directionWords(r.change.direction) : 'no lit pixels',
+            !r.trend || !r.change.direction ? '—' : r.trend === r.change.direction ? 'agree' : 'differ',
+            r.id in independent ? `${fmt(independent[r.id])} (${r.id === 'world' ? 'world map' : 'India view'})` : 'not available',
+          ];
+          tr.append(th, ...cells.map((t) => Object.assign(document.createElement('td'), { textContent: t })));
+          return tr;
+        }),
+      );
     let same = 0;
     let nearly = 0;
     let opposite = 0;
@@ -475,7 +538,14 @@ export function startUI(model: Model): UI {
       `they agree on the direction in ${same}, differ only between “little change” and a direction in ${nearly}, and point in opposite directions in ${opposite}. ` +
       'The yearly frames come from compressed video and NASA’s display rendering, so treat single cells with care.';
     window.terrajukeDecade = {
-      regions: rows.map((r) => ({ id: r.id, trend: r.trend, change: r.change.direction, lit: r.series.map((s) => s.litPixels) })),
+      regions: rows.map((r) => ({
+        id: r.id,
+        trend: r.trend,
+        change: r.change.direction,
+        ratio: r.series[11].light / r.series[0].light,
+        small: r.series[0].mapPixels < SMALL_PLACE_PIXELS,
+        light: r.series.map((s) => s.light),
+      })),
       agreement: { same, nearly, opposite },
     };
     status.textContent += ` NASA’s ${fields.length} yearly frames are ready: try “Hear the decade”.`;

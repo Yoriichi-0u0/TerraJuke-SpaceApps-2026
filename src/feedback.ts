@@ -77,6 +77,8 @@ export interface FeedbackOptions {
 
 export class Feedback {
   announcements: Announcements = 'off';
+  /** Called when a sound was requested but the audio context is not running. */
+  onBlocked: (() => void) | null = null;
   vibration = false;
   private nextId = 1;
   private summaryBuffer: FeedbackEvent[] = [];
@@ -107,6 +109,13 @@ export class Feedback {
       // Sound must never block the visual, text and tactile channels.
       this.o.audio.play(ev.plan);
       if (!this.o.audio.muted) audioAt = performance.now();
+      const state = this.o.audio.state;
+      if (state !== 'running') {
+        // The context may still be starting: check again shortly before warning.
+        window.setTimeout(() => {
+          if (this.o.audio.state !== 'running') this.onBlocked?.();
+        }, 400);
+      }
     } catch (err) {
       console.warn('TerraJuke audio unavailable:', err);
     }

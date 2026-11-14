@@ -15,6 +15,8 @@
 
 The EIC version is formatted for the Earth Information Center's wide displays; the original visualization is SVS 5276.
 
+**Validation only: Change in Night Lights between 2012 and 2023** (NASA SVS 5276, released 27 May 2024, same credits). Its annual-average series were used to cross-check the decade, not shown in the app: `nightlights_flat_series_stills_8k_4320p3_h265.mp4`, `nightlights_flat_series_stills_india_2160p3_h265.mp4`, `nightlights_flat_series_stills_ukraine_2160p3_h265.mp4`, and the year-named stills `nightlights_flat_series_stills_8k_compare.02012.jpg` / `.02023.jpg` (URLs, sizes and SHA-256 in `validation/svs5276-crosscheck.json`).
+
 ## Tools and packages
 
 | Tool | Use | Licence |

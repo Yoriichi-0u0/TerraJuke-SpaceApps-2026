@@ -25,11 +25,16 @@ The same visualization's EIC movie opens with NASA's **annual night-light averag
 3. Each remaining pixel is lit or unlit; lit pixels take the legend position of their colour. A 32 × 9 grid of 32-pixel cells summarizes them.
 4. One **FeedbackEvent** per selection drives, at the same moment: a synthesized sound (rising pair = more light, falling pair = less light, single tone = steady; pitch = position along the legend; loudness and 1–4 pulses = lit pixel share; pan = west→east), a ring pulse on the map (a still outline under reduced motion), a visible caption, optional screen-reader text, and optional vibration on supported Android browsers.
 
-5. **The decade.** Each yearly frame is read in the browser (lit = luma ≥ 0.15 and ≥ 0.03 above the local base map; the year label is masked). **Hear the decade** plays the chosen place (or the whole map) one note per year while the map shows that year: each place starts on A3 and every doubling of its rendered light is one octave up. The decade ends on NASA's change-map figure for the same place, as NASA's movie does. The year slider shows any year and plays it; while a year is shown, cells play that year.
+5. **The decade.** Each yearly frame is read in the browser: a place's light is its **brightness above the dark base map** (every pixel's luma above its 7 × 7 median, summed, with no "lit" threshold; the year label is masked). **Hear the decade** plays the chosen place (or the whole map) one note per year while the map shows that year: each place starts on A3 and every doubling of its brightness is one octave up. The decade ends on NASA's change-map figure for the same place, as NASA's movie does. The year slider shows any year and plays it; while a year is shown, cells play that year.
 
 Modes: **Explore** (pointer, touch, arrow keys, Enter/Space, Home/End for insets, D for the decade, Escape), **Tour** (the four inset regions, sounded from their map boxes, then every lit cell), **Hear the decade**, **Listen to the legend**, **Describe** (full text, per-region summaries in legend terms, the decade for each region and a cell-by-cell comparison of the two NASA renderings).
 
-The two renderings agree for India (brighter), Western Europe (dimmer) and Ukraine (dark by 2022), but not everywhere; the app reports the comparison openly (see LIMITATIONS.md).
+## Validation
+
+- **Independent NASA check.** NASA's original version of this visualization (SVS 5276) publishes its annual averages as separate 12-frame series. [scripts/crosscheck-5276.ts](scripts/crosscheck-5276.ts) applies the same measure to them and writes [validation/svs5276-crosscheck.json](validation/svs5276-crosscheck.json) (with source hashes). Year by year, our EIC-derived decade tracks it with r = 0.999 for the world and r = 0.96 for India; 2023 ÷ 2012 is 1.24 vs 1.18 (world) and 1.83 for our India box vs 1.51 for NASA's wider India view. The unit tests enforce these.
+- **Why no threshold.** An earlier version counted only pixels above a brightness threshold. At this coarse scale dim lights cross the threshold as they brighten, which inflated India's growth to 2.8×; the threshold-free measure agrees with the independent series at every scale tested (240–1920 px).
+- **Sensitivity.** Directions for the world, India and Western Europe hold for noise floors 0.005–0.02 and dark cutoffs 0.04–0.08 (tested).
+- **Limits found.** Ukraine's (280 map pixels) and the Eastern Mediterranean's (308) boxes are too small for a reliable decade reading and are flagged as weak; Western Europe dims by about 10 %, right at the threshold. Region by region and cell by cell, the app shows where NASA's two renderings agree and where they do not.
 
 ## Demo
 

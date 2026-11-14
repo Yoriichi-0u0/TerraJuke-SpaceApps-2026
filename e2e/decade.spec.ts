@@ -31,16 +31,22 @@ test('the browser reads NASA’s twelve yearly frames and agrees with the expect
   expect(byId['world'].trend).toBe('more');
   expect(byId['india'].trend).toBe('more');
   expect(byId['western-europe'].trend).toBe('less');
-  expect(byId['ukraine'].trend).toBe('less');
-  expect(byId['india'].lit[11]).toBeGreaterThan(byId['india'].lit[0] * 3);
-  expect(byId['ukraine'].lit.slice(10)).toEqual([0, 0]);
+  // Threshold-free brightness above the base map (cross-checked against NASA SVS 5276).
+  expect(byId['world'].ratio).toBeGreaterThan(1.15);
+  expect(byId['world'].ratio).toBeLessThan(1.35);
+  expect(byId['india'].ratio).toBeGreaterThan(1.6);
+  expect(byId['india'].ratio).toBeLessThan(2.1);
+  expect(byId['western-europe'].ratio).toBeLessThan(0.95);
+  expect(byId['ukraine'].small).toBe(true);
+  expect(byId['eastern-mediterranean'].small).toBe(true);
+  expect(byId['india'].small).toBe(false);
   expect(d.agreement.same + d.agreement.nearly + d.agreement.opposite).toBeGreaterThan(15);
   await expect(page.locator('#decade-summaries li')).toHaveCount(5);
   await expect(page.locator('#decade-agreement')).toContainText('cells');
   await expect(page.locator('#btn-decade')).toBeEnabled();
 });
 
-test('Hear the decade for India: 12 yearly notes that climb more than an octave, frames in step, then the change map', async ({ page }) => {
+test('Hear the decade for India: 12 yearly notes that end higher, frames in step, then the change map', async ({ page }) => {
   await openDecade(page);
   await chooseRegion(page, 4);
   await expect(page.locator('#caption')).toContainText('India map region');
@@ -57,7 +63,9 @@ test('Hear the decade for India: 12 yearly notes that climb more than an octave,
   const n = await after(page, t0);
   const years = n.filter((x) => x.type === 'triangle');
   expect(years).toHaveLength(12);
-  expect(years[11].hz / years[0].hz).toBeGreaterThan(2);
+  // 1.8× the brightness → four pentatonic steps (most of an octave) up.
+  expect(years[11].hz / years[0].hz).toBeGreaterThan(1.5);
+  expect(years[11].hz / years[0].hz).toBeLessThan(2);
   const cadence = n.filter((x) => x.type === 'sawtooth');
   expect(cadence.length).toBeGreaterThanOrEqual(2);
   expect(cadence[1].hz).toBeGreaterThan(cadence[0].hz);
@@ -68,7 +76,7 @@ test('Hear the decade for India: 12 yearly notes that climb more than an octave,
     expect(Math.abs(e.pulseAt - e.audioAt!)).toBeLessThan(50);
     expect(Math.abs(e.captionAt - e.audioAt!)).toBeLessThan(50);
   }
-  await expect(page.locator('#announcer')).toContainText('India map region: lit map pixels went from');
+  await expect(page.locator('#announcer')).toContainText('India map region: brighter over the decade');
 });
 
 test('Western Europe’s decade ends lower than it starts', async ({ page }) => {
@@ -84,19 +92,30 @@ test('Western Europe’s decade ends lower than it starts', async ({ page }) => 
   expect(years[11].hz).toBeLessThan(years[0].hz);
 });
 
-test('Ukraine’s box has rests in 2022 and 2023: captions but no notes', async ({ page }) => {
+test('Ukraine’s small box plays its decade with a weak-reading warning, never a confident claim', async ({ page }) => {
   await openDecade(page);
   await chooseRegion(page, 3);
   await expect(page.locator('#caption')).toContainText('Ukraine map region');
   const t0 = await now(page);
   await page.locator('#btn-decade').click();
-  await expect(page.locator('#caption')).toContainText('2023 · Ukraine map region · no lit map pixels · rest', { timeout: 10_000 });
-  await expect(page.locator('#caption')).toContainText('NASA’s change map', { timeout: 5000 });
-  // 10 yearly notes, then the change map's falling pair (also triangle) for Ukraine.
+  await expect(page.locator('#caption')).toContainText('2023 · Ukraine map region', { timeout: 10_000 });
+  await expect(page.locator('#announcer')).toContainText('weak reading', { timeout: 6000 });
   const years = (await after(page, t0)).filter((x) => x.type === 'triangle');
-  expect(years).toHaveLength(12);
-  const entries = (await log(page)).filter((e) => e.text.includes('· Ukraine map region ·') && /^20\d\d/.test(e.text));
-  expect(entries).toHaveLength(10);
+  expect(years.length).toBeGreaterThanOrEqual(12);
+});
+
+test('the regional comparison table sets the decade beside NASA’s change map and the independent NASA check', async ({ page }) => {
+  await openDecade(page);
+  const rows = page.locator('#decade-compare tbody tr');
+  await expect(rows).toHaveCount(5);
+  await expect(page.locator('#decade-compare tbody th[scope="row"]').first()).toHaveText('The whole map');
+  const india = rows.filter({ hasText: 'India map region' });
+  await expect(india).toContainText('brighter');
+  await expect(india).toContainText('more light');
+  await expect(india).toContainText('agree');
+  await expect(india).toContainText('India view');
+  await expect(rows.filter({ hasText: 'Ukraine map region' })).toContainText('weak: small box');
+  await expect(rows.first()).toContainText('world map');
 });
 
 test('the year slider shows a frame, plays that year and is keyboard operable; cells then play that year', async ({ page }) => {

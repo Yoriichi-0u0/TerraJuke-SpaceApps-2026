@@ -129,3 +129,8 @@ th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; ver
 th { background: var(--panel); }
 
 footer.site { border-top: 1px solid var(--line); margin-top: 24px; padding: 16px 0 40px; color: var(--muted); }
+
+.table-scroll { overflow-x: auto; max-width: 100%; }
+#decade-compare { border-collapse: collapse; min-width: 720px; margin: 8px 0 12px; }
+#decade-compare th, #decade-compare td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+#decade-compare thead th { color: var(--muted); font-weight: 600; }
