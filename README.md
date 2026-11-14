@@ -31,6 +31,10 @@ Modes: **Explore** (pointer, touch, arrow keys, Enter/Space, Home/End for insets
 
 The two renderings agree for India (brighter), Western Europe (dimmer) and Ukraine (dark by 2022), but not everywhere; the app reports the comparison openly (see LIMITATIONS.md).
 
+## Demo
+
+7-slide demo deck (PDF): https://terrajuke-2026.vercel.app/TerraJuke-demo-deck.pdf (also in [public/](public/TerraJuke-demo-deck.pdf)). It was prepared with AI assistance and says so on every slide; its images are NASA SVS frames (unaltered crops) and screenshots of the live app.
+
 ## Run locally
 
 Node 24.

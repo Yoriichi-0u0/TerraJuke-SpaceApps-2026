@@ -1,3 +1,7 @@
+# Demo deck
+
+The finished 7-slide deck is `public/TerraJuke-demo-deck.pdf`, served at https://terrajuke-2026.vercel.app/TerraJuke-demo-deck.pdf. The outline below was the plan for it.
+
 # Demo deck outline (7 slides maximum, including title)
 
 1. **Title.** TerraJuke — One Earth. Every Sense. Everyone. Team BoboMimi · Bintulu, Malaysia · The Earth Information Jukebox. Live link and repo link.
