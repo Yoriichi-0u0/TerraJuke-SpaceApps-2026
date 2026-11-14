@@ -48,6 +48,9 @@ declare global {
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const TOUR_STEP_MS = 1300;
 const FULL_MAP: Rect = { x0: 0, y0: 0, x1: IMAGE_WIDTH - 1, y1: IMAGE_HEIGHT - 1 };
+/** The year slider's last position: NASA's change map, as at the end of NASA's movie. */
+const CHANGE_POSITION = 2024;
+const CHANGE_TEXT = 'Change map, 2012 to 2023';
 
 /** The place the decade and the year slider play: the last cell or region chosen, or the whole map. */
 interface Place {
@@ -377,7 +380,8 @@ export function startUI(model: Model): UI {
       yearImg.hidden = true;
       yearBadge.hidden = true;
       yearOut.textContent = 'Change map shown';
-      yearSlider.setAttribute('aria-valuetext', `${yearSlider.value}, change map shown`);
+      yearSlider.value = String(CHANGE_POSITION);
+      yearSlider.setAttribute('aria-valuetext', CHANGE_TEXT);
       return;
     }
     yearImg.src = frameUrl(year);
@@ -474,7 +478,7 @@ export function startUI(model: Model): UI {
     buttons.decade.removeAttribute('title');
     yearSlider.disabled = false;
     changeMapBtn.disabled = false;
-    yearSlider.setAttribute('aria-valuetext', `${yearSlider.value}, change map shown`);
+    yearSlider.setAttribute('aria-valuetext', CHANGE_TEXT);
     for (const y of YEARS) new Image().src = frameUrl(y);
 
     const places: { id: string; label: string; rect: Rect; change: RegionStats }[] = [
@@ -580,6 +584,11 @@ export function startUI(model: Model): UI {
     if (mode !== 'explore') stopAll(false);
     audio.unlock();
     const year = Number(yearSlider.value);
+    if (year === CHANGE_POSITION) {
+      showYear(null);
+      playChangeOf(place);
+      return;
+    }
     showYear(year);
     playYearOf(place, year, 'user');
   });

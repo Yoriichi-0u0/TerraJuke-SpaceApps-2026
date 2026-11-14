@@ -122,7 +122,8 @@ test('the year slider shows a frame, plays that year and is keyboard operable; c
   await openDecade(page);
   const slider = page.locator('#year');
   await slider.focus();
-  await page.keyboard.press('End');
+  await expect(slider).toHaveAttribute('aria-valuetext', 'Change map, 2012 to 2023');
+  await page.keyboard.press('ArrowLeft');
   await expect(page.locator('#year-image')).toHaveAttribute('src', '/nasa/decade/2023.jpg');
   await expect(slider).toHaveAttribute('aria-valuetext', '2023');
   await expect(page.locator('#year-out')).toHaveText('2023 frame shown');
@@ -138,6 +139,14 @@ test('the year slider shows a frame, plays that year and is keyboard operable; c
   await page.locator('#btn-change-map').click();
   await expect(page.locator('#year-image')).toBeHidden();
   await expect(page.locator('#year-out')).toHaveText('Change map shown');
+  await expect(slider).toHaveAttribute('aria-valuetext', 'Change map, 2012 to 2023');
+  // Home goes to the first year; End comes back to the change map and plays it.
+  await slider.focus();
+  await page.keyboard.press('Home');
+  await expect(page.locator('#year-image')).toHaveAttribute('src', '/nasa/decade/2012.jpg');
+  await page.keyboard.press('End');
+  await expect(page.locator('#year-image')).toBeHidden();
+  await expect(page.locator('#caption')).toContainText('NASA’s change map');
 });
 
 test('D on the map plays the chosen cell’s decade; Escape stops it and restores the change map', async ({ page }) => {
@@ -157,7 +166,7 @@ test('D on the map plays the chosen cell’s decade; Escape stops it and restore
 test('axe finds no violations with a yearly frame on show', async ({ page }) => {
   await openDecade(page);
   await page.locator('#year').focus();
-  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowLeft');
   await expect(page.locator('#year-image')).toBeVisible();
   const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'best-practice']).analyze();
   expect(results.violations).toEqual([]);
